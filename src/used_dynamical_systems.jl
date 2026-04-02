@@ -74,7 +74,7 @@ const amoc_params_1xco2 = [
     0.39,        # γ:    mixing fraction (southern vs Indo-Pacific)
     5.5e-8,      # μ:    momentum advection
     100*3.15e7,  # Y:    year-to-second scaling × 100
-    4.4735e16,   # C:    total salinity content### is this different for 1xCO2?
+    4.4463e16,   # C:    total salinity content### is this different for 1xCO2?
 ]
 
 """
@@ -212,14 +212,17 @@ function amoc3box_1xco2()
     ds = CoupledODEs(amoc_rule, u0, params;
         diffeq = (alg = Rosenbrock23(), abstol = 1e-7, reltol = 1e-7))
 
-    # State-space grid for attractor finding via recurrences
-    # Ranges tuned to encompass both AMOC-on and AMOC-off attractors
-    xg = range(-0.25, 0.15; length = 101)  # S_N
-    yg = range(-0.1,  0.7;  length = 101)  # S_T
+    # State-space grid for attractor finding via recurrences.
+    # Cell size ≈ 0.01 to match the old ε = 0.01 proximity threshold
+    # (in the current Attractors API, grid cell size replaces ε).
+    xg = range(-0.25, 0.15; length = 81)
+    yg = range(-0.1,  0.7;  length = 161)
     grid = (xg, yg)
 
     # Proximity / mapper keywords (passed as keyword args to AttractorsViaRecurrences)
-    proximity = (; ε = 0.01, Ttr = 0, Δt = 1.0, stop_at_Δt = true,
+    # Ttr: worst-case convergence to a fixed point across the grid is ~3400 steps.
+    # Use 4000 to ensure all trajectories have settled before recurrence counting.
+    proximity = (; ε = 0.01, Ttr = 0.0, Δt = 0.1, stop_at_Δt = true,
                    horizon_limit = 1e2, consecutive_lost_steps = 1_000_000)
 
     return ds, grid, proximity
@@ -242,11 +245,13 @@ function amoc3box_2xco2()
     ds = CoupledODEs(amoc_rule, u0, params;
         diffeq = (alg = Rosenbrock23(), abstol = 1e-7, reltol = 1e-7))
 
-    xg = range(-0.25, 0.15; length = 101)
-    yg = range(-0.1,  0.7;  length = 101)
+    xg = range(-0.25, 0.15; length = 41)
+    yg = range(-0.1,  0.7;  length = 81)
     grid = (xg, yg)
 
-    proximity = (; ε = 0.01, Ttr = 0, Δt = 1.0, stop_at_Δt = true,
+    # Ttr: worst-case convergence to a fixed point across the grid is ~3400 steps.
+    # Use 4000 to ensure all trajectories have settled before recurrence counting.
+    proximity = (; ε = 0.01, Ttr = 4000, Δt = 1.0, stop_at_Δt = true,
                    horizon_limit = 1e2, consecutive_lost_steps = 1_000_000)
 
     return ds, grid, proximity

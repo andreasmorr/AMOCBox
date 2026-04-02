@@ -36,7 +36,7 @@ const H_STEP   = 0.01
 
 # Samples for basin / continuation map
 const CONTINUATION_SAMPLES = 100    # samples per parameter step for continuation
-const RESILIENCE_SAMPLES   = 1000   # samples per parameter step for resilience
+const RESILIENCE_SAMPLES   = 10_000   # samples per parameter step for resilience
 
 # Finite-time horizon for finite-time basin stability
 const FINITE_TIME = 1000.0
@@ -44,17 +44,17 @@ const FINITE_TIME = 1000.0
 # Resilience measures to extract for plotting
 const CHOSEN_MEASURES = [
     "minimal_critical_shock_magnitude",
-    "maximal_noncritical_shock_magnitude",
     "basin_stability",
     "median_convergence_time",
+    "median_convergence_pace",
     "finite_time_basin_stability",
 ]
 
 const MEASURE_YLABELS = Dict(
     "minimal_critical_shock_magnitude"    => "Min. critical shock",
-    "maximal_noncritical_shock_magnitude" => "Max. non-critical shock",
     "basin_stability"                     => "Basin stability",
     "median_convergence_time"             => "Med. convergence time (yr)",
+    "median_convergence_pace"             => "Med. convergence pace",
     "finite_time_basin_stability"         => "Finite-time basin stab.",
 )
 
@@ -113,15 +113,23 @@ function _continuation_inner(ds_fn::Function, cfg::Dict)
     # Sampler over state space
     sampler, = statespace_sampler(grid)
 
-    # Recurrences mapper keywords
+    # Recurrences mapper keywords (ε removed: current API uses grid cell size for proximity)
     recurrence_kw = Dict(
-        :ε                       => ε,
         :Ttr                     => proximity.Ttr,
         :Δt                      => proximity.Δt,
         :stop_at_Δt              => proximity.stop_at_Δt,
         :horizon_limit           => proximity.horizon_limit,
         :consecutive_lost_steps  => proximity.consecutive_lost_steps,
+        :consecutive_recurrences => 10000,
+        :consecutive_attractor_steps => 1000,   
+        :consecutive_basin_steps => 1000,
     )
+    # proximity_mapper_options for AttractorsViaProximity (used in stability measures)
+    # must not include ε since it is passed as a separate keyword
+    proximity_options = (; Ttr = proximity.Ttr, Δt = proximity.Δt,
+                           stop_at_Δt = proximity.stop_at_Δt,
+                           horizon_limit = proximity.horizon_limit,
+                           consecutive_lost_steps = proximity.consecutive_lost_steps)
 
     mapper = AttractorsViaRecurrences(ds, grid; recurrence_kw...)
     ascm   = AttractorSeedContinueMatch(mapper)
@@ -140,7 +148,7 @@ function _continuation_inner(ds_fn::Function, cfg::Dict)
         finite_time                = cfg["finite_time"],
         distance                   = StrictlyMinimumDistance(),
         samples_per_parameter      = cfg["resilience_samples"],
-        proximity_mapper_options   = proximity,
+        proximity_mapper_options   = proximity_options,
     )
 
     return @strdict fractions_cont attractors_cont nls_measures pcurve
@@ -170,19 +178,31 @@ attractors_cont_2x = data_2x["attractors_cont"]
 
 # AMOC strength q at each H, for the on-attractor
 function amoc_q_curve(attractors_cont, params_base, H_values)
-    qs = fill(NaN, length(H_values))
+    qs    = fill(NaN, length(H_values))
+    on_id = nothing   # determined at first non-empty step: attractor with highest q
+
     for (i, (h, atts)) in enumerate(zip(H_values, attractors_cont))
+        isempty(atts) && continue
         p = copy(params_base)
         p[1] = h
-        # Find the on-attractor (highest q) among all attractors at this H
-        best_q = -Inf
-        for (id, att) in atts
-            isempty(att) && continue
-            mean_state = vec(mean(Matrix(att); dims = 1))
-            q = amoc_strength(mean_state, p)
-            best_q = max(best_q, q)
+
+        # q for each non-empty attractor at this step
+        id_q = [(id, amoc_strength(vec(mean(Matrix(att); dims=1)), p))
+                for (id, att) in atts if !isempty(att)]
+        isempty(id_q) && continue
+
+        if on_id === nothing
+            # First step: identify the on-state as the attractor with highest q
+            on_id = id_q[argmax(last.(id_q))][1]
         end
-        qs[i] = isinf(best_q) ? NaN : best_q
+
+        if any(id == on_id for (id, _) in id_q)
+            # On-state still present — follow it
+            qs[i] = first(q for (id, q) in id_q if id == on_id)
+        else
+            # On-state gone after tipping — plot whichever attractor remains
+            qs[i] = id_q[argmax(last.(id_q))][2]
+        end
     end
     return qs
 end
@@ -211,50 +231,77 @@ col_1x = :steelblue
 col_2x = :firebrick
 
 n_rows = length(CHOSEN_MEASURES) + 1   # +1 for AMOC strength panel
-fig = Figure(size = (800, 300 * n_rows))
 
-for (row, mname) in enumerate(CHOSEN_MEASURES)
-    ax = Axis(fig[row, 1];
-        xlabel    = row == length(CHOSEN_MEASURES) ? "Hosing H (Sv)" : "",
-        ylabel    = get(MEASURE_YLABELS, mname, mname),
-        xticklabelsvisible = row == length(CHOSEN_MEASURES),
-    )
-
-    c1 = measure_curve(nls_1x, mname, ID_ON, n_steps)
-    c2 = measure_curve(nls_2x, mname, ID_ON, n_steps)
-
-    v1 = .!isnan.(c1);  v2 = .!isnan.(c2)
-
-    lines!(ax, H_values[v1], c1[v1]; color = col_1x, linewidth = 2, label = "1×CO₂")
-    lines!(ax, H_values[v2], c2[v2]; color = col_2x, linewidth = 2, label = "2×CO₂")
-
-    row == 1 && axislegend(ax; position = :rt)
-
-    # Letter label
-    text!(ax, 0.97, 0.05;
-        text       = "($(('a':'z')[row]))",
-        align      = (:right, :bottom),
-        space      = :relative,
-        fontsize   = 16,
-    )
+# Identify the on-state attractor ID at the first step (highest q = on-state)
+function find_on_id(attractors_cont, params_base, H_values)
+    for (h, atts) in zip(H_values, attractors_cont)
+        isempty(atts) && continue
+        p = copy(params_base); p[1] = h
+        id_q = [(id, amoc_strength(vec(mean(Matrix(att); dims=1)), p))
+                for (id, att) in atts if !isempty(att)]
+        isempty(id_q) && continue
+        return id_q[argmax(last.(id_q))][1]
+    end
+    return ID_ON  # fallback
 end
 
-# Bottom panel: AMOC overturning strength
-ax_q = Axis(fig[n_rows, 1];
-    xlabel = "Hosing H (Sv)",
-    ylabel = "AMOC strength q (m³/s)",
+on_id_1x = find_on_id(attractors_cont_1x, copy(amoc_params_1xco2), H_values)
+on_id_2x = find_on_id(attractors_cont_2x, copy(amoc_params_2xco2), H_values)
+
+# Last H step where AMOC-on genuinely exists — used to clip resilience curves
+last_1x = something(
+    findlast(i -> haskey(attractors_cont_1x[i], on_id_1x) && !isempty(attractors_cont_1x[i][on_id_1x]), 1:n_steps),
+    n_steps)
+last_2x = something(
+    findlast(i -> haskey(attractors_cont_2x[i], on_id_2x) && !isempty(attractors_cont_2x[i][on_id_2x]), 1:n_steps),
+    n_steps)
+
+fig = Figure(size = (500, 180 * n_rows))
+
+# Panel 1: AMOC overturning strength (on-state → off-state after tipping)
+ax_q = Axis(fig[1, 1];
+    ylabel = "AMOC strength q (Sv)",
+    xticklabelsvisible = false,
 )
 vq1 = .!isnan.(q_1x);  vq2 = .!isnan.(q_2x)
 lines!(ax_q, H_values[vq1], q_1x[vq1]; color = col_1x, linewidth = 2, label = "1×CO₂")
 lines!(ax_q, H_values[vq2], q_2x[vq2]; color = col_2x, linewidth = 2, label = "2×CO₂")
 hlines!(ax_q, [0.0]; color = :black, linestyle = :dash, linewidth = 1)
 axislegend(ax_q; position = :rt)
-text!(ax_q, 0.97, 0.05;
-    text = "($(('a':'z')[n_rows]))", align = (:right, :bottom),
-    space = :relative, fontsize = 16,
-)
+text!(ax_q, 0.97, 0.05; text = "(a)", align = (:right, :bottom), space = :relative, fontsize = 16)
 
-resize!(fig, 700, 280 * n_rows)
+all_axes = Axis[ax_q]
+
+# Panels 2..n_rows: resilience measures for AMOC-on, clipped at tipping point
+for (k, mname) in enumerate(CHOSEN_MEASURES)
+    row     = k + 1
+    is_last = row == n_rows
+    ax = Axis(fig[row, 1];
+        xlabel             = is_last ? "Hosing H (Sv)" : "",
+        ylabel             = get(MEASURE_YLABELS, mname, mname),
+        xticklabelsvisible = is_last,
+    )
+    push!(all_axes, ax)
+
+    c1 = measure_curve(nls_1x, mname, on_id_1x, n_steps)
+    c2 = measure_curve(nls_2x, mname, on_id_2x, n_steps)
+
+    v1 = [!isnan(c1[i]) && i <= last_1x for i in 1:n_steps]
+    v2 = [!isnan(c2[i]) && i <= last_2x for i in 1:n_steps]
+
+    lines!(ax, H_values[v1], c1[v1]; color = col_1x, linewidth = 2, label = "1×CO₂")
+    lines!(ax, H_values[v2], c2[v2]; color = col_2x, linewidth = 2, label = "2×CO₂")
+
+    text!(ax, 0.97, 0.05;
+        text     = "($(('a':'z')[row]))",
+        align    = (:right, :bottom),
+        space    = :relative,
+        fontsize = 16,
+    )
+end
+
+linkxaxes!(all_axes...)
+
 fig_path = plotsdir("amoc3box_hosing_resilience_comparison.png")
 wsave(fig_path, fig)
 @info "Figure saved to: $fig_path"
