@@ -398,10 +398,10 @@ rows = DataFrame(
     attractor           = String[],
 )
 
-# AMOC strength curve
+# AMOC strength curve (convert m³/s → Sv: 1 Sv = 1e6 m³/s)
 for (i, co2) in enumerate(CO2_VALUES)
     if !isnan(q_curve[i])
-        push!(rows, (co2, T_VALUES[i], "amoc_strength_sv", q_curve[i], "on"))
+        push!(rows, (co2, T_VALUES[i], "amoc_strength_sv", q_curve[i] / 1e6, "on"))
     end
 end
 
