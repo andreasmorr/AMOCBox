@@ -384,3 +384,40 @@ if PLOT_BASINS
 
     @info "Basin plots saved to: $basins_outdir"
 end
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Export resilience metrics to CSV for synthesis figure
+# ─────────────────────────────────────────────────────────────────────────────
+using CSV, DataFrames
+
+rows = DataFrame(
+    co2_ppm             = Float64[],
+    t_param             = Float64[],
+    measure             = String[],
+    value               = Float64[],
+    attractor           = String[],
+)
+
+# AMOC strength curve
+for (i, co2) in enumerate(CO2_VALUES)
+    if !isnan(q_curve[i])
+        push!(rows, (co2, T_VALUES[i], "amoc_strength_sv", q_curve[i], "on"))
+    end
+end
+
+# Resilience measures
+if COMPUTE_STABILITY
+    for mname in CHOSEN_MEASURES
+        cv = measure_curve(nls_measures, mname, on_id, n_steps)
+        for (i, co2) in enumerate(CO2_VALUES)
+            if !isnan(cv[i]) && i <= last_on
+                push!(rows, (co2, T_VALUES[i], mname, cv[i], "on"))
+            end
+        end
+    end
+end
+
+csv_path = datadir("paper", "resilience_vs_co2_boxmodel.csv")
+mkpath(datadir("paper"))
+CSV.write(csv_path, rows)
+@info "Resilience CSV saved to: $csv_path"
