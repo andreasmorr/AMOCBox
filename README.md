@@ -1,21 +1,49 @@
-# Sales Pitch
-Resilience encompasses a range of concepts that describe how a dynamical system responds to perturbations. These concepts differ in both the type of disturbance considered and the aspect of recovery they emphasize. In natural systems, however, most resilience measures are difficult to quantify directly, as controlled experiments are often not feasible. A common alternative is to use numerical models to simulate system responses to perturbations. Yet it remains unclear whether different notions of resilience yield consistent insights across models of varying complexity. We address this question in the context of the Atlantic Meridional Overturning Circulation (AMOC), for which a wide hierarchy of models exists. Our approach combines multiple levels of complexity: we analyze conceptual box models, perform extensive trajectory simulations with the intermediate-complexity model CLIMBER-X, and investigate transient and equilibrium dynamics with respect to the AMOC “on” and “off” regimes using the general circulation model PlaSim. Our goal is to determine whether and which resilience metrics exhibit coherent trends under climate change, which is expected to push the AMOC closer to a potential tipping point. If multiple resilience indicators consistently signal a loss of stability across models and datasets, they may serve as robust early-warning indicators of such a transition.
+# AMOCBox
 
-# Tasks
-## 3-box Model
-Wood et al. and later Alkhayuon et al. parametrize a 3-box model of the AMOC. They do this for a 1xCO2 setting and a 2xCO2 setting. Interpolating between these two parameter configurations of the box model gives us a continuum of AMOC models under increasing CO2. We can investigate sample models from this continuum for resilience using the Attractors.jl stability measures functionality. This gives us a resilience trend from each employed measure, which can then be compared to the results from models higher up in the hierarchy.
+Resilience analysis of the Alkhayuon et al. 3-box AMOC model under increasing CO₂, using [Attractors.jl](https://juliadynamics.github.io/DynamicalSystemsDocs.jl/attractors/stable/).
 
-## CLIMBER-X
-We run many trajectories in the CLIMBER-X model starting from perturbed states away from the stable AMOC on state. These perturbations should be of a particular nature, changing salinity across large coherent parts of the ocean (similar to the boxes from the box-model). This way, we can map out basins of attraction in this more complex model and assess their relative sizes and geometries, in addtion to transient characteristics of the model runs. Locally around the stable AMOC state, we can also assess the linear stability from equilirbium runs. This yields comparable information to that from the box model experiments.
+The model is parametrized for 1×CO₂ and 2×CO₂ settings. Interpolating between (and extrapolating beyond) these two parameter vectors gives a continuum of AMOC states under increasing CO₂. Multiple stability and resilience measures are computed along this continuum. In a parallel experiment, freshwater hosing (H) is used as the continuation parameter at fixed 1×CO₂ and 2×CO₂ to map out the bifurcation structure.
 
-## PlaSim
-We have high-dimensional trajectories that are reduced to dominant EOFs (physically similar to boxes from above) that go from the saddle (edge) state to either the on or the off state of the AMOC. Trajectories are available for pre-industrial (285 ppm) and current (360 ppm) CO2 levels. In addition to the bisection trajectories, we have long equilibrium runs at the AMOC-on, AMOC-off, and edge states for both CO2 levels.
+## File structure
 
-The equilibrium runs are used to fit a Gaussian distribution to each state in EOF space. The resulting covariance ellipsoids (at a chosen nσ level, currently 3σ) define the boundaries of each state and are used for two key metrics:
+```
+AMOCBox/
+├── scripts/
+│   ├── amoc3box_co2_continuation.jl   # Global continuation along CO2 parameter curve
+│   └── amoc3box_hosing_scan.jl        # Hosing continuation at 1xCO2 and 2xCO2
+├── src/
+│   └── used_dynamical_systems.jl      # Box model definitions (1xCO2, 2xCO2 variants)
+├── data/
+│   ├── co2_continuation/              # Cached results from CO2 continuation runs (.jld2)
+│   └── hosing_continuation/           # Cached results from hosing scan runs (.jld2)
+├── Project.toml
+└── Manifest.toml
+```
 
-- **Convergence time**: the transit time from the last step a trajectory is inside the edge-state ellipse to the first step it enters the target attractor ellipse, evaluated in the 2D space of the first two EOFs. Trajectories that never visited the edge ellipse are excluded.
-- **Edge-to-attractor distance**: the gap between the surfaces of the edge-state and attractor ellipsoids (zero if they overlap).
+## Scripts
 
-The equilibrium runs are also used to assess local stability via variance, dominant variance, lag-1 autocorrelation, and integrated autocorrelation time per EOF dimension. Mean AMOC strength is read directly from the equilibrium NetCDF files.
+### `amoc3box_co2_continuation.jl`
+Runs global attractor continuation along the parameter curve
+`params(t) = params_1x + t * (params_2x - params_1x)`, where `t=0` is pre-industrial and `t=1` is 2×CO₂. Stability and resilience measures are computed at each step and saved via DrWatson's `produce_or_load`.
 
-All key metrics (mean convergence time, edge distance, 1σ ellipsoid volume, mean AMOC strength) for the AMOC-on and AMOC-off states at both CO2 levels are saved to `data/plasim/resilience_metrics.csv`.
+### `amoc3box_hosing_scan.jl`
+Runs global attractor continuation over freshwater hosing H = 0 → 0.55 Sv separately for the 1×CO₂ and 2×CO₂ parameter sets, producing a comparison of resilience measures across the two CO₂ scenarios.
+
+## Usage
+
+From the project root:
+
+```bash
+julia --project scripts/amoc3box_co2_continuation.jl
+julia --project scripts/amoc3box_hosing_scan.jl
+```
+
+Results are cached in `data/` and figures are written to `plots/`.
+
+## Dependencies
+
+Julia with [DrWatson](https://juliadynamics.github.io/DrWatson.jl/stable/), [DynamicalSystems.jl](https://juliadynamics.github.io/DynamicalSystemsDocs.jl/dynamicalsystems/stable/), [Attractors.jl](https://juliadynamics.github.io/DynamicalSystemsDocs.jl/attractors/stable/), and [CairoMakie](https://makie.org/). Install with:
+
+```julia
+using Pkg; Pkg.instantiate()
+```
