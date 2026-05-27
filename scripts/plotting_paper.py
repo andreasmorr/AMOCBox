@@ -45,7 +45,7 @@ from amoc_plot_style import (
 # Helper: time-varying alpha LineCollection
 # ---------------------------------------------------------------------------
 
-def plot_traj_shaded(ax, x, y, color, alpha_start=0.15, alpha_end=0.95, lw=1.0):
+def plot_traj_shaded(ax, x, y, color, alpha_start=0.10, alpha_end=0.85, lw=0.8):
     """Plot trajectory as a LineCollection with alpha increasing with time."""
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
@@ -56,7 +56,8 @@ def plot_traj_shaded(ax, x, y, color, alpha_start=0.15, alpha_end=0.95, lw=1.0):
     colors_with_alpha = [(*matplotlib.colors.to_rgb(color), a) for a in alphas]
     lc = LineCollection(segs, colors=colors_with_alpha, linewidth=lw)
     ax.add_collection(lc)
-    ax.autoscale()
+    ax.update_datalim(np.column_stack([x, y]))
+    ax.autoscale_view()
 
 
 # ---------------------------------------------------------------------------
@@ -64,8 +65,8 @@ def plot_traj_shaded(ax, x, y, color, alpha_start=0.15, alpha_end=0.95, lw=1.0):
 # ---------------------------------------------------------------------------
 
 SCENARIOS = [
-    ("1xco2", "1\u00d7CO\u2082 (280 ppm)"),
-    ("2xco2", "2\u00d7CO\u2082 (560 ppm)"),
+    ("1xco2",  "280 ppm"),
+    ("896ppm", "896 ppm"),
 ]
 
 
@@ -109,7 +110,10 @@ def main() -> None:
         data[scenario] = d
 
     # Build figure
-    fig, axes_top, axes_bottom = make_paper_figure(ncols=2, top_height=1.4, bottom_height=3.0)
+    fig, axes_top, axes_bottom = make_paper_figure()
+    for ax in axes_bottom:
+        ax.set_aspect("auto")
+    axes_bottom[1].sharex(axes_bottom[0])
 
     panel_labels = ["(a)", "(b)", "(c)", "(d)"]
 
@@ -128,17 +132,18 @@ def main() -> None:
         q_on    = float(row_on["q"])
         q_off   = float(row_off["q"])
 
-        # ── TOP panel: q(t) for 3 trajectories ───────────────────────────────
+        # ── TOP panel: q(t) for 4 trajectories ───────────────────────────────
         traj_ids = sorted(df_trajs["traj_id"].unique())
         legend_handles = []
         legend_labels  = []
-        for k, tid in enumerate(traj_ids[:3]):
+        for k, tid in enumerate(traj_ids[:4]):
             color  = TRAJ_COLORS[k % len(TRAJ_COLORS)]
             sub    = df_trajs[df_trajs["traj_id"] == tid].sort_values("time")
+            sub    = sub[sub["time"] <= 3000]
             t_arr  = sub["time"].values
             q_arr  = sub["q"].values
             lbl    = f"IC {k + 1}"
-            (line,) = ax_top.plot(t_arr, q_arr, color=color, lw=1.2, label=lbl)
+            (line,) = ax_top.plot(t_arr, q_arr, color=color, lw=1.0, label=lbl)
             legend_handles.append(line)
             legend_labels.append(lbl)
 
@@ -149,6 +154,8 @@ def main() -> None:
         ax_top.set_title(title, fontsize=9)
         if col == 0:
             ax_top.set_ylabel("AMOC strength (Sv)")
+        else:
+            ax_top.tick_params(labelleft=False)
         ax_top.set_xlabel("Time (model years)")
         add_panel_label(ax_top, panel_labels[col])
 
@@ -196,7 +203,7 @@ def main() -> None:
                           shading="nearest", zorder=0)
 
         # Trajectories with time-varying alpha
-        for k, tid in enumerate(traj_ids[:3]):
+        for k, tid in enumerate(traj_ids[:4]):
             color = TRAJ_COLORS[k % len(TRAJ_COLORS)]
             sub   = df_trajs[df_trajs["traj_id"] == tid].sort_values("time")
             plot_traj_shaded(ax_bot, sub["S_N"].values, sub["S_T"].values,
@@ -213,6 +220,8 @@ def main() -> None:
         ax_bot.set_xlabel("North Atlantic salinity anomaly (\u00d7100 psu)")
         if col == 0:
             ax_bot.set_ylabel("Tropical salinity anomaly (\u00d7100 psu)")
+        else:
+            ax_bot.tick_params(labelleft=False)
         add_panel_label(ax_bot, panel_labels[col + 2])
 
     out_path = PLOTS_DIR / "amocbox_paper.pdf"

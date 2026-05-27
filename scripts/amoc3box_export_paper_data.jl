@@ -23,13 +23,13 @@ using Attractors
 using Statistics
 using CSV
 using DataFrames
-using LinearAlgebra
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Settings
 # ─────────────────────────────────────────────────────────────────────────────
 
-const T_MAX      = 3000.0   # integration length (model years)
+const T_MAX      = 3000.0   # integration length (model years) for IC3, IC4
+const T_MAX_LONG = 6000.0   # integration length for IC1, IC2
 const DT_TRAJ    = 1.0      # output time step
 const GRID_RES   = 60       # basin grid resolution (60×60)
 
@@ -62,8 +62,20 @@ function process_scenario(scenario::String)
     @info "Processing scenario: $scenario"
 
     # Build dynamical system
-    ds, grid_full, proximity = (scenario == "1xco2") ? amoc3box_1xco2() : amoc3box_2xco2()
-    params = (scenario == "1xco2") ? copy(amoc_params_1xco2) : copy(amoc_params_2xco2)
+    ds, grid_full, proximity = if scenario == "1xco2"
+        amoc3box_1xco2()
+    elseif scenario == "2xco2"
+        amoc3box_2xco2()
+    else
+        amoc3box_896ppm()
+    end
+    params = if scenario == "1xco2"
+        copy(amoc_params_1xco2)
+    elseif scenario == "2xco2"
+        copy(amoc_params_2xco2)
+    else
+        copy(amoc_params_896ppm)
+    end
 
     # ── Basin of attraction on a coarser grid ────────────────────────────────
     xg = range(grid_full[1][1], grid_full[1][end]; length = GRID_RES)
@@ -121,33 +133,21 @@ function process_scenario(scenario::String)
     CSV.write(attr_path, attr_df)
     @info "  Attractor CSV saved: $attr_path"
 
-    # ── Select 3 initial conditions ──────────────────────────────────────────
-    # IC1: near on-attractor (small perturbation toward on-basin interior)
-    ic1 = SVector(att_on_state[1] - 0.05, att_on_state[2] + 0.05)
-
-    # IC2: near basin boundary (find adjacent cells with different labels)
-    boundary_pts = Tuple{Float64,Float64}[]
-    for ix in 1:(GRID_RES - 1), iy in 1:(GRID_RES - 1)
-        if basins[ix, iy] != basins[ix+1, iy] || basins[ix, iy] != basins[ix, iy+1]
-            push!(boundary_pts, ((xg[ix] + xg[ix+1]) / 2, (yg[iy] + yg[iy+1]) / 2))
-        end
-    end
-    if isempty(boundary_pts)
-        # Fallback: midpoint between attractors
-        ic2 = SVector((att_on_state[1] + att_off_state[1]) / 2,
-                       (att_on_state[2] + att_off_state[2]) / 2)
-    else
-        # Pick the boundary point closest to the mean of the two attractors
-        mid = (att_on_state .+ att_off_state) ./ 2
-        dists = [norm([p[1] - mid[1], p[2] - mid[2]]) for p in boundary_pts]
-        bp = boundary_pts[argmin(dists)]
-        ic2 = SVector(bp[1], bp[2])
+    # ── Select 4 initial conditions (scenario-specific) ──────────────────────
+    if scenario == "1xco2"
+        ic1 = SVector(-0.2,  0.15)
+        ic2 = SVector(-0.15, 0.2 )
+        ic3 = SVector( 0.1,  0.1 )
+        ic4 = SVector( 0.2,  0.0 )
+    else  # 896ppm
+        ic1 = SVector( 0.4,  0.5 )
+        ic2 = SVector( 0.6,  0.8 )
+        ic3 = SVector(-0.5,  0.3 )
+        ic4 = SVector(-0.6,  0.4 )
     end
 
-    # IC3: near off-attractor
-    ic3 = SVector(att_off_state[1] + 0.05, att_off_state[2] - 0.05)
-
-    ics = [ic1, ic2, ic3]
+    ics    = [ic1,        ic2,        ic3,    ic4   ]
+    t_maxs = [T_MAX_LONG, T_MAX_LONG, T_MAX,  T_MAX ]
 
     # ── Integrate trajectories ────────────────────────────────────────────────
     traj_rows = DataFrame(
@@ -158,9 +158,9 @@ function process_scenario(scenario::String)
         q       = Float64[],
     )
 
-    for (tid, ic) in enumerate(ics)
-        @info "  Integrating trajectory $tid / 3 from $ic ..."
-        tvec, SN_arr, ST_arr, q_arr = integrate_trajectory(ds, ic, params, T_MAX, DT_TRAJ)
+    for (tid, (ic, t_max)) in enumerate(zip(ics, t_maxs))
+        @info "  Integrating trajectory $tid / 4 from $ic for $t_max years..."
+        tvec, SN_arr, ST_arr, q_arr = integrate_trajectory(ds, ic, params, t_max, DT_TRAJ)
         for k in 1:length(tvec)
             push!(traj_rows, (tid, tvec[k], SN_arr[k], ST_arr[k], q_arr[k]))
         end
@@ -180,7 +180,7 @@ end
 function main()
     mkpath(datadir("paper"))
 
-    for scenario in ("1xco2", "2xco2")
+    for scenario in ("1xco2", "896ppm")
         process_scenario(scenario)
     end
 

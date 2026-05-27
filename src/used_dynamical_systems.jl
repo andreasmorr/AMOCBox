@@ -256,3 +256,64 @@ function amoc3box_2xco2()
 
     return ds, grid, proximity
 end
+
+"""
+    amoc_params_896ppm
+
+Parameter vector for the 3-box AMOC model at 896 ppm CO₂ (3.2×pre-industrial).
+
+Obtained by linear extrapolation of the 1xCO2→2xCO2 parameter curve at t=2.2,
+consistent with the CO₂ continuation in amoc3box_co2_continuation.jl:
+    params(t) = params_1x + t * (params_2x - params_1x),  t = 2.2
+"""
+const amoc_params_896ppm = [
+    0.0,         # H:    hosing flux (Sv), start at zero
+    0.4189e17,   # V_N:  North box volume (m³)
+    0.2587e17,   # V_T:  tropical box volume (m³)
+    0.2737e17,   # V_S:  southern box volume (m³)
+    0.6268e17,   # V_IP: Indo-Pacific box volume (m³)
+    11.4562e17,  # V_B:  deep box volume (m³)
+    0.034427,    # S_S:  southern salinity (psu, dimensional)
+    0.034668,    # S_IP: Indo-Pacific salinity (psu, initial guess; overwritten in ODE)
+    0.034538,    # S_B:  deep salinity (psu)
+    0.6084e6,    # F_N:  freshwater flux North (m³/s)
+    -1.3258e6,   # F_T:  freshwater flux tropical (m³/s)
+    0.12,        # α:    thermal expansion (1/°C)
+    790.0,       # β:    haline contraction (dimensionless, scaled)
+    0.035,       # S_0:  reference salinity (psu)
+    11.6942,     # T_S:  southern temperature (extrapolated)
+    5.334,       # T_0:  deep ocean temperature (extrapolated)
+    -2.6708e6,   # K_N:  North mixing (m³/s, extrapolated; changes sign beyond 2xCO2)
+    -2.418e6,    # K_S:  South mixing (m³/s, extrapolated; changes sign beyond 2xCO2)
+    0.216e7,     # λ:    hydraulic constant
+    0.324,       # γ:    mixing fraction (southern vs Indo-Pacific)
+    41.8e-8,     # μ:    momentum advection
+    100*3.15e7,  # Y:    year-to-second scaling × 100
+    4.5061e16,   # C:    total salinity content
+]
+
+"""
+    amoc3box_896ppm() → (ds, grid, proximity)
+
+Construct the 3-box AMOC `CoupledODEs` system at 896 ppm CO₂ (3.2×pre-industrial).
+
+Parameters are linearly extrapolated from the 1×CO₂–2×CO₂ parameter curve at t=2.2,
+consistent with the global continuation in amoc3box_co2_continuation.jl.
+"""
+function amoc3box_896ppm()
+    params = copy(amoc_params_896ppm)
+
+    u0 = SVector(0.0, 0.4)
+
+    ds = CoupledODEs(amoc_rule, u0, params;
+        diffeq = (alg = Rosenbrock23(), abstol = 1e-7, reltol = 1e-7))
+
+    xg = range(-1.0, 1.0; length = 101)
+    yg = range(-0.1,  2.0;  length = 106)
+    grid = (xg, yg)
+
+    proximity = (; ε = 0.01, Ttr = 4000, Δt = 1.0, stop_at_Δt = true,
+                   horizon_limit = 1e2, consecutive_lost_steps = 10_000)
+
+    return ds, grid, proximity
+end
