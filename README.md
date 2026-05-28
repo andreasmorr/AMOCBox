@@ -2,7 +2,7 @@
 
 Resilience analysis of the Alkhayuon et al. 3-box AMOC model under increasing CO₂, using [Attractors.jl](https://juliadynamics.github.io/DynamicalSystemsDocs.jl/attractors/stable/).
 
-The model is parametrised for 1×CO₂ and 2×CO₂ settings. Interpolating between these two parameter vectors gives a continuum of AMOC states under increasing CO₂. Stability and resilience measures are computed along this continuum. In a parallel experiment, freshwater hosing is used as the continuation parameter at fixed 1×CO₂ and 2×CO₂ to map out the bifurcation structure.
+The model is parametrised for 1×CO₂ and 2×CO₂ settings. Interpolating between these two parameter vectors gives a continuum of AMOC states under increasing CO₂. Stability and resilience measures are computed along this continuum.
 
 ---
 
@@ -12,14 +12,12 @@ The model is parametrised for 1×CO₂ and 2×CO₂ settings. Interpolating betw
 AMOCBox/
 ├── scripts/
 │   ├── amoc3box_co2_continuation.jl   # Global continuation along CO₂ parameter curve
-│   ├── amoc3box_hosing_scan.jl        # Hosing continuation at 1×CO₂ and 2×CO₂
 │   ├── amoc3box_export_paper_data.jl  # Export CSVs for paper figures
 │   └── plotting_paper.py              # Paper figure (reads exported CSVs)
 ├── src/
 │   └── used_dynamical_systems.jl      # Box model definitions (1×CO₂, 2×CO₂ variants)
 ├── data/
 │   ├── co2_continuation/              # Cached results from CO₂ continuation runs (.jld2)
-│   ├── hosing_continuation/           # Cached results from hosing scan runs (.jld2)
 │   └── paper/                         # CSV exports for plotting
 │       ├── basin_{1xco2,2xco2}.csv        # 60×60 basin label grid
 │       ├── trajectories_{1xco2,2xco2}.csv # Perturbed IC trajectories
@@ -38,10 +36,6 @@ AMOCBox/
 ### `amoc3box_co2_continuation.jl`
 
 Runs global attractor continuation along `params(t) = params_1x + t * (params_2x - params_1x)`, where `t=0` is pre-industrial and `t=1` is 2×CO₂. Stability and resilience measures are computed at each step and saved via DrWatson's `produce_or_load`. Also exports `data/paper/resilience_vs_co2_boxmodel.csv` with AMOC strength (Sv) and resilience metrics along the CO₂ parameter curve.
-
-### `amoc3box_hosing_scan.jl`
-
-Runs global attractor continuation over freshwater hosing H = 0 → 0.55 Sv separately for 1×CO₂ and 2×CO₂, producing a comparison of resilience measures across the two CO₂ scenarios.
 
 ### `amoc3box_export_paper_data.jl`
 
@@ -70,9 +64,8 @@ Output: `plots/amocbox_paper.pdf`
 From the project root:
 
 ```bash
-# 1. Run continuation analyses
+# 1. Run continuation analysis
 julia --project scripts/amoc3box_co2_continuation.jl
-julia --project scripts/amoc3box_hosing_scan.jl
 
 # 2. Export paper data (basin grids, trajectories, attractors)
 julia --project scripts/amoc3box_export_paper_data.jl
