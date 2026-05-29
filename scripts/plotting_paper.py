@@ -20,6 +20,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.colors
+import matplotlib.ticker as mticker
 from matplotlib.collections import LineCollection
 import numpy as np
 import pandas as pd
@@ -217,9 +218,14 @@ def main() -> None:
                        marker="*", s=120, color=COL_OFF, zorder=5,
                        edgecolors="white", linewidths=0.5)
 
-        ax_bot.set_xlabel("North Atlantic salinity anomaly (\u00d7100 psu)")
+        # Convert raw model salinity units to psu: 0 → 35 psu, step 0.1 → 1 psu
+        sal_fmt = mticker.FuncFormatter(lambda x, _: f"{35 + x * 10:.0f}")
+        ax_bot.xaxis.set_major_formatter(sal_fmt)
+        ax_bot.yaxis.set_major_formatter(sal_fmt)
+
+        ax_bot.set_xlabel("North Atlantic salinity (psu)")
         if col == 0:
-            ax_bot.set_ylabel("Tropical salinity anomaly (\u00d7100 psu)")
+            ax_bot.set_ylabel("Tropical salinity (psu)")
         else:
             ax_bot.tick_params(labelleft=False)
         add_panel_label(ax_bot, panel_labels[col + 2])

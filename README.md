@@ -53,7 +53,7 @@ Box model definitions for the 1×CO₂ and 2×CO₂ parameter sets, including th
 
 **Figure layout:**
 - **Top row** (shorter): AMOC strength vs time for 3 selected trajectories at 1×CO₂ (left) and 2×CO₂ (right). ON/OFF equilibria shown as dashed horizontal lines.
-- **Bottom row** (square): 2D salinity phase portrait (N. Atlantic vs Tropical Atlantic box salinity). Basin of attraction shown as pale background colour. Trajectories are time-shaded (alpha increases with time). Attractor positions marked with stars.
+- **Bottom row** (square): 2D salinity phase portrait (N. Atlantic vs Tropical Atlantic box salinity). Basin of attraction shown as pale background colour. Trajectories are time-shaded (alpha increases with time). Attractor positions marked with stars. Axes are labelled in psu: the model's internal salinity variable has offset 35 psu (i.e. a model value of 0 corresponds to 35 psu) and a scale of 10 psu per unit (i.e. a step of 0.1 in model units equals 1 psu).
 
 Output: `plots/amocbox_paper.pdf`
 
