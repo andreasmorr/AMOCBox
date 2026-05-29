@@ -230,8 +230,9 @@ def main() -> None:
             ax_bot.tick_params(labelleft=False)
         add_panel_label(ax_bot, panel_labels[col + 2])
 
-    out_path = PLOTS_DIR / "amocbox_paper.pdf"
-    savefig_pdf(fig, out_path)
+    out_path = PLOTS_DIR / "amocbox_paper.png"
+    fig.savefig(out_path, dpi=300, bbox_inches="tight")
+    print(f"Figure saved: {out_path}")
     plt.close(fig)
 
 

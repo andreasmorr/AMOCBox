@@ -15,7 +15,8 @@ AMOCBox/
 │   ├── amoc3box_export_paper_data.jl  # Export CSVs for paper figures
 │   └── plotting_paper.py              # Paper figure (reads exported CSVs)
 ├── src/
-│   └── used_dynamical_systems.jl      # Box model definitions (1×CO₂, 2×CO₂ variants)
+│   ├── used_dynamical_systems.jl      # Box model definitions (1×CO₂, 2×CO₂ variants)
+│   └── attractor_centered_stability.jl # Custom stability measures with per-step centred sampling
 ├── data/
 │   ├── co2_continuation/              # Cached results from CO₂ continuation runs (.jld2)
 │   └── paper/                         # CSV exports for plotting
@@ -37,6 +38,8 @@ AMOCBox/
 
 Runs global attractor continuation along `params(t) = params_1x + t * (params_2x - params_1x)`, where `t=0` is pre-industrial and `t=1` is 2×CO₂. Stability and resilience measures are computed at each step and saved via DrWatson's `produce_or_load`. Also exports `data/paper/resilience_vs_co2_boxmodel.csv` with AMOC strength (Sv) and resilience metrics along the CO₂ parameter curve.
 
+**Attractor-centred sampling**: the resilience measures use a custom function (`src/attractor_centered_stability.jl`) rather than `Attractors.stability_measures_along_continuation`. At each continuation step the centroid of the AMOC-on attractor is computed, and initial conditions for the stability measures are drawn uniformly from a ±2 psu box around that centroid (±0.2 in model units, where 1 model unit = 10 psu). This ensures the perturbation experiment is always physically anchored to the current on-state position as it drifts with CO₂, rather than sampling from a fixed global grid.
+
 ### `amoc3box_export_paper_data.jl`
 
 Exports all data required by `plotting_paper.py` to `data/paper/`. Computes a 60×60 basin grid via `AttractorsViaRecurrences`, selects three representative initial conditions (on-basin, boundary-crossing, off-basin) per CO₂ level, integrates trajectories for 3 000 time units, and writes basin grids, trajectories, and attractor positions as CSVs.
@@ -55,7 +58,7 @@ Box model definitions for the 1×CO₂ and 2×CO₂ parameter sets, including th
 - **Top row** (shorter): AMOC strength vs time for 3 selected trajectories at 1×CO₂ (left) and 2×CO₂ (right). ON/OFF equilibria shown as dashed horizontal lines.
 - **Bottom row** (square): 2D salinity phase portrait (N. Atlantic vs Tropical Atlantic box salinity). Basin of attraction shown as pale background colour. Trajectories are time-shaded (alpha increases with time). Attractor positions marked with stars. Axes are labelled in psu: the model's internal salinity variable has offset 35 psu (i.e. a model value of 0 corresponds to 35 psu) and a scale of 10 psu per unit (i.e. a step of 0.1 in model units equals 1 psu).
 
-Output: `plots/amocbox_paper.pdf`
+Output: `plots/amocbox_paper.png` (300 dpi)
 
 ---
 

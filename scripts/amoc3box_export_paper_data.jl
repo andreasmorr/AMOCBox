@@ -32,6 +32,7 @@ const T_MAX      = 3000.0   # integration length (model years) for IC3, IC4
 const T_MAX_LONG = 6000.0   # integration length for IC1, IC2
 const DT_TRAJ    = 1.0      # output time step
 const GRID_RES   = 60       # basin grid resolution (60×60)
+const BASIN_DELTA = 0.2     # half-width of attractor-centred basin grid (±2 psu)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper: AMOC overturning strength in Sv
@@ -77,11 +78,7 @@ function process_scenario(scenario::String)
         copy(amoc_params_896ppm)
     end
 
-    # ── Basin of attraction on a coarser grid ────────────────────────────────
-    xg = range(grid_full[1][1], grid_full[1][end]; length = GRID_RES)
-    yg = range(grid_full[2][1], grid_full[2][end]; length = GRID_RES)
-    basin_grid = (xg, yg)
-
+    # ── Step 1: find attractors on the full grid via recurrences ────────────────
     recurrence_kw = Dict(
         :Ttr                         => 0.0,
         :Δt                          => 1.0,
@@ -93,17 +90,11 @@ function process_scenario(scenario::String)
         :consecutive_basin_steps     => 1_000,
     )
 
-    mapper  = AttractorsViaRecurrences(ds, basin_grid; recurrence_kw...)
-    basins, attractors = basins_of_attraction(mapper, basin_grid; show_progress = true)
+    xg_full = range(grid_full[1][1], grid_full[1][end]; length = GRID_RES)
+    yg_full = range(grid_full[2][1], grid_full[2][end]; length = GRID_RES)
 
-    # ── Export basin CSV ─────────────────────────────────────────────────────
-    basin_rows = DataFrame(S_N = Float64[], S_T = Float64[], basin_label = Int[])
-    for (ix, sn) in enumerate(xg), (iy, st) in enumerate(yg)
-        push!(basin_rows, (sn, st, basins[ix, iy]))
-    end
-    basin_path = datadir("paper", "basin_$(scenario).csv")
-    CSV.write(basin_path, basin_rows)
-    @info "  Basin CSV saved: $basin_path"
+    mapper_full = AttractorsViaRecurrences(ds, (xg_full, yg_full); recurrence_kw...)
+    _, attractors = basins_of_attraction(mapper_full, (xg_full, yg_full); show_progress = true)
 
     # ── Identify on-attractor (highest q) and off-attractor ──────────────────
     id_q_pairs = [
@@ -114,6 +105,28 @@ function process_scenario(scenario::String)
 
     on_id  = id_q_pairs[1][1]
     off_id = length(id_q_pairs) >= 2 ? id_q_pairs[2][1] : id_q_pairs[1][1]
+
+    # ── Step 2: compute basin on ±BASIN_DELTA grid centred on on-attractor ───
+    att_on_centroid = vec(mean(Matrix(attractors[on_id]); dims = 1))
+    sn_c, st_c = att_on_centroid[1], att_on_centroid[2]
+
+    xg = range(sn_c - BASIN_DELTA, sn_c + BASIN_DELTA; length = GRID_RES)
+    yg = range(st_c - BASIN_DELTA, st_c + BASIN_DELTA; length = GRID_RES)
+
+    proximity_kw = (; Ttr = 0.0, Δt = 1.0, stop_at_Δt = true,
+                      horizon_limit = 1e2, consecutive_lost_steps = 10_000)
+    prox_mapper = AttractorsViaProximity(ds, attractors;
+        ε = proximity.ε, proximity_kw...)
+    basins, _ = basins_of_attraction(prox_mapper, (xg, yg); show_progress = true)
+
+    # ── Export basin CSV ─────────────────────────────────────────────────────
+    basin_rows = DataFrame(S_N = Float64[], S_T = Float64[], basin_label = Int[])
+    for (ix, sn) in enumerate(xg), (iy, st) in enumerate(yg)
+        push!(basin_rows, (sn, st, basins[ix, iy]))
+    end
+    basin_path = datadir("paper", "basin_$(scenario).csv")
+    CSV.write(basin_path, basin_rows)
+    @info "  Basin CSV saved: $basin_path (centred on on-attractor, ±$(BASIN_DELTA) model units = ±$(Int(BASIN_DELTA*10)) psu)"
 
     att_on_state  = vec(mean(Matrix(attractors[on_id]);  dims = 1))
     att_off_state = (on_id != off_id) ? vec(mean(Matrix(attractors[off_id]); dims = 1)) :
@@ -136,14 +149,14 @@ function process_scenario(scenario::String)
     # ── Select 4 initial conditions (scenario-specific) ──────────────────────
     if scenario == "1xco2"
         ic1 = SVector(-0.2,  0.15)
-        ic2 = SVector(-0.15, 0.2 )
+        ic2 = SVector(-0.15, -0.2)   # S_T perturbation sign flipped
         ic3 = SVector( 0.1,  0.1 )
         ic4 = SVector( 0.2,  0.0 )
-    else  # 896ppm
-        ic1 = SVector( 0.4,  0.5 )
-        ic2 = SVector( 0.6,  0.8 )
-        ic3 = SVector(-0.5,  0.3 )
-        ic4 = SVector(-0.6,  0.4 )
+    else  # 896ppm — all ICs within the ±0.2 perturbation box around on-attractor (0.288, 0.804)
+        ic1 = SVector( 0.45,  0.95)  # upper-right
+        ic2 = SVector( 0.15,  0.95)  # upper-left
+        ic3 = SVector( 0.45,  0.65)  # lower-right
+        ic4 = SVector( 0.15,  0.65)  # lower-left
     end
 
     ics    = [ic1,        ic2,        ic3,    ic4   ]

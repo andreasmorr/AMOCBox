@@ -22,6 +22,7 @@ using DrWatson
 @quickactivate "AMOCResilience"
 
 include(srcdir("used_dynamical_systems.jl"))
+include(srcdir("attractor_centered_stability.jl"))
 
 using DynamicalSystems
 using Attractors
@@ -37,11 +38,11 @@ const T_END   = 2.4    # beyond 2xCO2
 const T_STEP  = 0.05
 
 const CONTINUATION_SAMPLES = 100
-const RESILIENCE_SAMPLES   = 10_000
+const RESILIENCE_SAMPLES   = 1_000
 const FINITE_TIME          = 1000.0
 
 const COMPUTE_STABILITY = true   # set false to skip stability measures (faster)
-const PLOT_BASINS       = true   # set true to compute and save per-step basin plots
+const PLOT_BASINS       = false  # set true to compute and save per-step basin plots
 
 const CHOSEN_MEASURES = [
     "minimal_critical_shock_magnitude",
@@ -118,6 +119,21 @@ proximity_options = (;
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Identify AMOC-on attractor ID (highest overturning strength at t=0)
+# ─────────────────────────────────────────────────────────────────────────────
+
+function find_on_id(attractors_cont, params_base)
+    for atts in attractors_cont
+        isempty(atts) && continue
+        id_q = [(id, amoc_strength(vec(mean(Matrix(att); dims = 1)), params_base))
+                for (id, att) in atts if !isempty(att)]
+        isempty(id_q) && continue
+        return id_q[argmax(last.(id_q))][1]
+    end
+    return 1  # fallback
+end
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Run (or load cached) continuation + stability measures
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -145,10 +161,15 @@ data, _ = produce_or_load(
         samples_per_parameter = CONTINUATION_SAMPLES,
     )
 
+    # Identify AMOC-on attractor ID here so it is available inside produce_or_load
+    on_id_inner = find_on_id(attractors_cont, copy(amoc_params_1xco2))
+
     nls_measures = if COMPUTE_STABILITY
-        @info "Computing stability measures along continuation..."
-        stability_measures_along_continuation(
-            ds, attractors_cont, pcurve, sampler;
+        @info "Computing stability measures along continuation (attractor-centred sampling)..."
+        stability_measures_attractor_centered(
+            ds, attractors_cont, pcurve, on_id_inner;
+            grid_delta               = 0.2,   # ±2 psu in model units
+            grid_step                = 0.02,  # same resolution as the global grid
             ε                        = proximity.ε,
             weighting_distribution   = Attractors.EverywhereUniform(),
             finite_time              = FINITE_TIME,
@@ -167,21 +188,6 @@ fractions_cont  = data["fractions_cont"]
 attractors_cont = data["attractors_cont"]
 nls_measures    = data["nls_measures"]
 n_steps         = length(T_VALUES)
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Identify AMOC-on attractor ID (highest overturning strength at t=0)
-# ─────────────────────────────────────────────────────────────────────────────
-
-function find_on_id(attractors_cont, params_base)
-    for atts in attractors_cont
-        isempty(atts) && continue
-        id_q = [(id, amoc_strength(vec(mean(Matrix(att); dims = 1)), params_base))
-                for (id, att) in atts if !isempty(att)]
-        isempty(id_q) && continue
-        return id_q[argmax(last.(id_q))][1]
-    end
-    return 1  # fallback
-end
 
 on_id = find_on_id(attractors_cont, copy(amoc_params_1xco2))
 
