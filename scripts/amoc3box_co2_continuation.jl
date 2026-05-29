@@ -44,20 +44,24 @@ const FINITE_TIME          = 1000.0
 const COMPUTE_STABILITY = true   # set false to skip stability measures (faster)
 const PLOT_BASINS       = false  # set true to compute and save per-step basin plots
 
-const CHOSEN_MEASURES = [
-    "minimal_critical_shock_magnitude",
-    "basin_stability",
-    "median_convergence_time",
-    "median_convergence_pace",
-    "finite_time_basin_stability",
-]
-
 const MEASURE_YLABELS = Dict(
-    "minimal_critical_shock_magnitude" => "Min. critical shock",
-    "basin_stability"                  => "Basin stability",
-    "median_convergence_time"          => "Med. convergence time (yr)",
-    "median_convergence_pace"          => "Med. convergence pace",
-    "finite_time_basin_stability"      => "Finite-time basin stab.",
+    "basin_fraction"                        => "Basin fraction",
+    "basin_stability"                       => "Basin stability",
+    "finite_time_basin_stability"           => "Finite-time basin stab.",
+    "mean_convergence_time"                 => "Mean conv. time (yr)",
+    "maximal_convergence_time"              => "Max conv. time (yr)",
+    "median_convergence_time"               => "Median conv. time (yr)",
+    "mean_convergence_pace"                 => "Mean conv. pace",
+    "maximal_convergence_pace"              => "Max conv. pace",
+    "median_convergence_pace"               => "Median conv. pace",
+    "minimal_critical_shock_magnitude"      => "Min. critical shock",
+    "mean_noncritical_shock_magnitude"      => "Mean noncritical shock",
+    "maximal_noncritical_shock_magnitude"   => "Max noncritical shock",
+    "characteristic_return_time"            => "Char. return time",
+    "reactivity"                            => "Reactivity",
+    "maximal_amplification"                 => "Max amplification",
+    "maximal_amplification_time"            => "Max amplification time",
+    "intermingledness"                      => "Intermingledness",
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -251,15 +255,16 @@ end
 # Figure
 # ─────────────────────────────────────────────────────────────────────────────
 
-n_rows = COMPUTE_STABILITY ? length(CHOSEN_MEASURES) + 1 : 1
+all_measures = COMPUTE_STABILITY ? sort(collect(keys(nls_measures))) : String[]
+n_rows = length(all_measures) + 1
 
 fig = Figure(size = (520, 180 * n_rows))
 
 # ── Panel 1: AMOC overturning strength ──────────────────────────────────────
 ax_q = Axis(fig[1, 1];
     ylabel             = "AMOC strength q (Sv)",
-    xlabel             = COMPUTE_STABILITY ? "" : "CO₂ concentration (ppm)",
-    xticklabelsvisible = !COMPUTE_STABILITY,
+    xlabel             = isempty(all_measures) ? "CO₂ concentration (ppm)" : "",
+    xticklabelsvisible = isempty(all_measures),
 )
 
 vq = .!isnan.(q_curve)
@@ -280,7 +285,7 @@ all_axes = Axis[ax_q]
 
 # ── Panels 2…n_rows: stability measures (AMOC-on, clipped at tipping) ───────
 if COMPUTE_STABILITY
-    for (k, mname) in enumerate(CHOSEN_MEASURES)
+    for (k, mname) in enumerate(all_measures)
         row     = k + 1
         is_last = row == n_rows
         ax = Axis(fig[row, 1];
@@ -411,9 +416,16 @@ for (i, co2) in enumerate(CO2_VALUES)
     end
 end
 
-# Resilience measures
+# Resilience measures — only the four used in the paper synthesis figure
+const CSV_MEASURES = [
+    "characteristic_return_time",
+    "mean_convergence_time",
+    "basin_stability",
+    "minimal_critical_shock_magnitude",
+]
+
 if COMPUTE_STABILITY
-    for mname in CHOSEN_MEASURES
+    for mname in CSV_MEASURES
         cv = measure_curve(nls_measures, mname, on_id, n_steps)
         for (i, co2) in enumerate(CO2_VALUES)
             if !isnan(cv[i]) && i <= last_on
