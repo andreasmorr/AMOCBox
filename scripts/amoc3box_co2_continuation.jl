@@ -38,7 +38,7 @@ const T_END   = 2.4    # beyond 2xCO2
 const T_STEP  = 0.05
 
 const CONTINUATION_SAMPLES = 100
-const RESILIENCE_SAMPLES   = 1_000
+const RESILIENCE_SAMPLES   = 10_000
 const FINITE_TIME          = 1000.0
 
 const COMPUTE_STABILITY = true   # set false to skip stability measures (faster)
