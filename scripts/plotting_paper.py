@@ -2,11 +2,11 @@
 plotting_paper.py  –  AMOCBox 4-panel paper figure.
 
 Reads data exported by amoc3box_export_paper_data.jl:
-  data/paper/basin_{1xco2,2xco2}.csv
-  data/paper/trajectories_{1xco2,2xco2}.csv
-  data/paper/attractors_{1xco2,2xco2}.csv
+  data/paper/basin_{co2}ppm.csv
+  data/paper/trajectories_{co2}ppm.csv
+  data/paper/attractors_{co2}ppm.csv
 
-Output: plots/amocbox_paper.pdf
+Output: plots/amocbox_paper.png
 
 Run from the AMOCBox submodule root or the project root:
     python scripts/plotting_paper.py
@@ -66,7 +66,7 @@ def plot_traj_shaded(ax, x, y, color, alpha_start=0.10, alpha_end=0.85, lw=0.8):
 # ---------------------------------------------------------------------------
 
 SCENARIOS = [
-    ("1xco2",  "280 ppm"),
+    ("280ppm",  "280 ppm"),
     ("896ppm", "896 ppm"),
 ]
 

@@ -213,8 +213,8 @@ function amoc3box_1xco2()
         diffeq = (alg = Rosenbrock23(), abstol = 1e-7, reltol = 1e-7))
 
     # State-space grid for attractor finding via recurrences.
-    # Cell size ≈ 0.01 to match the old ε = 0.01 proximity threshold
-    # (in the current Attractors API, grid cell size replaces ε).
+    # Cell size ≈ 0.02 in model units (1 model unit = 10 psu).
+    # ε = 0.005 model units = 0.05 psu (consistent with Boussinesq/CLIMBER-X convergence threshold).
     xg = range(-1.0, 1.0; length = 101) #-0.25, 0.15
     yg = range(-0.1,  2.0;  length = 106) #-0.1, 0.7
     grid = (xg, yg)
@@ -222,7 +222,7 @@ function amoc3box_1xco2()
     # Proximity / mapper keywords (passed as keyword args to AttractorsViaRecurrences)
     # Ttr: worst-case convergence to a fixed point across the grid is ~3400 steps.
     # Use 4000 to ensure all trajectories have settled before recurrence counting.
-    proximity = (; ε = 0.01, Ttr = 0.0, Δt = 1.0, stop_at_Δt = true,
+    proximity = (; ε = 0.005, Ttr = 0.0, Δt = 1.0, stop_at_Δt = true,
                    horizon_limit = 1e2, consecutive_lost_steps = 10_000)
 
     return ds, grid, proximity
@@ -251,7 +251,7 @@ function amoc3box_2xco2()
 
     # Ttr: worst-case convergence to a fixed point across the grid is ~3400 steps.
     # Use 4000 to ensure all trajectories have settled before recurrence counting.
-    proximity = (; ε = 0.01, Ttr = 4000, Δt = 1.0, stop_at_Δt = true,
+    proximity = (; ε = 0.005, Ttr = 4000, Δt = 1.0, stop_at_Δt = true,
                    horizon_limit = 1e2, consecutive_lost_steps = 10_000)
 
     return ds, grid, proximity
@@ -312,7 +312,40 @@ function amoc3box_896ppm()
     yg = range(-0.1,  2.0;  length = 106)
     grid = (xg, yg)
 
-    proximity = (; ε = 0.01, Ttr = 4000, Δt = 1.0, stop_at_Δt = true,
+    proximity = (; ε = 0.005, Ttr = 4000, Δt = 1.0, stop_at_Δt = true,
+                   horizon_limit = 1e2, consecutive_lost_steps = 10_000)
+
+    return ds, grid, proximity
+end
+
+"""
+    amoc3box_at_t(t) → (ds, grid, proximity)
+
+Construct the 3-box AMOC `CoupledODEs` system at an arbitrary point along
+the 1×CO₂ → 2×CO₂ parameter curve.  At t=0 this is identical to
+`amoc3box_1xco2()`; at t=1 it matches `amoc3box_2xco2()`.  Values t > 1
+extrapolate beyond 2×CO₂.
+
+    params(t) = amoc_params_1xco2 .+ t .* (amoc_params_2xco2 .- amoc_params_1xco2)
+
+The corresponding CO₂ concentration is:
+
+    CO₂(t) = 280 + t * (560 - 280)  [ppm]
+"""
+function amoc3box_at_t(t::Float64)
+    params = amoc_params_1xco2 .+ t .* (amoc_params_2xco2 .- amoc_params_1xco2)
+
+    u0 = SVector(0.0, 0.4)
+
+    ds = CoupledODEs(amoc_rule, u0, params;
+        diffeq = (alg = Rosenbrock23(), abstol = 1e-7, reltol = 1e-7))
+
+    xg = range(-1.0, 1.0; length = 101)
+    yg = range(-0.1,  2.0; length = 106)
+    grid = (xg, yg)
+
+    ttr = iszero(t) ? 0 : 4000
+    proximity = (; ε = 0.01, Ttr = ttr, Δt = 1.0, stop_at_Δt = true,
                    horizon_limit = 1e2, consecutive_lost_steps = 10_000)
 
     return ds, grid, proximity
