@@ -21,7 +21,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.colors
 import matplotlib.ticker as mticker
-from matplotlib.collections import LineCollection
 import numpy as np
 import pandas as pd
 
@@ -42,23 +41,6 @@ from amoc_plot_style import (
     make_paper_figure, add_panel_label, savefig_pdf,
 )
 
-# ---------------------------------------------------------------------------
-# Helper: time-varying alpha LineCollection
-# ---------------------------------------------------------------------------
-
-def plot_traj_shaded(ax, x, y, color, alpha_start=0.10, alpha_end=0.85, lw=0.8):
-    """Plot trajectory as a LineCollection with alpha increasing with time."""
-    x = np.asarray(x, dtype=float)
-    y = np.asarray(y, dtype=float)
-    points = np.array([x, y]).T.reshape(-1, 1, 2)
-    segs = np.concatenate([points[:-1], points[1:]], axis=1)
-    n = len(segs)
-    alphas = np.linspace(alpha_start, alpha_end, n)
-    colors_with_alpha = [(*matplotlib.colors.to_rgb(color), a) for a in alphas]
-    lc = LineCollection(segs, colors=colors_with_alpha, linewidth=lw)
-    ax.add_collection(lc)
-    ax.update_datalim(np.column_stack([x, y]))
-    ax.autoscale_view()
 
 
 # ---------------------------------------------------------------------------
@@ -203,12 +185,12 @@ def main() -> None:
         ax_bot.pcolormesh(SN, ST, basin_mat, cmap=cmap_basin, norm=norm,
                           shading="nearest", zorder=0)
 
-        # Trajectories with time-varying alpha
+        # Trajectories
         for k, tid in enumerate(traj_ids[:4]):
             color = TRAJ_COLORS[k % len(TRAJ_COLORS)]
             sub   = df_trajs[df_trajs["traj_id"] == tid].sort_values("time")
-            plot_traj_shaded(ax_bot, sub["S_N"].values, sub["S_T"].values,
-                             color=color, alpha_start=0.15, alpha_end=0.9, lw=1.0)
+            ax_bot.plot(sub["S_N"].values, sub["S_T"].values,
+                        color=color, alpha=0.6, lw=1.0)
 
         # Attractor markers
         ax_bot.scatter([sn_on],  [st_on],
