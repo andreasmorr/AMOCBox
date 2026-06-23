@@ -2,7 +2,7 @@
 
 Resilience analysis of the Alkhayuon et al. 3-box AMOC model under increasing CO₂, using [Attractors.jl](https://juliadynamics.github.io/DynamicalSystemsDocs.jl/attractors/stable/).
 
-The model is parametrised for 1×CO₂ (280 ppm, pre-industrial) and 2×CO₂ (560 ppm) settings. The parameter curve is extrapolated beyond 2×CO₂ up to t=2.4 (≈952 ppm). Stability and resilience measures are computed along this continuum. The export script produces one set of CSVs per t step (49 steps total), each tagged by the rounded CO₂ value (e.g. `280ppm`, `308ppm`, …, `952ppm`). The paper figure compares two scenarios: 280 ppm (pre-industrial, t=0) and 896 ppm (t=2.2).
+The model is parametrised for 1×CO₂ (280 ppm, pre-industrial) and 2×CO₂ (560 ppm) settings. The parameter curve is extrapolated beyond 2×CO₂ up to t=2.4 (≈952 ppm). Stability and resilience measures are computed along this continuum. The export script produces one set of CSVs per t step (49 steps total), each tagged by the rounded CO₂ value (e.g. `280ppm`, `308ppm`, …, `952ppm`). The paper figure compares two scenarios: 280 ppm (pre-industrial, t=0) and 448 ppm (t=0.6).
 
 ---
 
@@ -63,8 +63,8 @@ Box model definitions for the 1×CO₂, 2×CO₂, and 896 ppm parameter sets, in
 `plotting_paper.py` produces a publication-quality 4-panel figure using the shared design language from `../amoc_plot_style.py`.
 
 **Figure layout:**
-- **Top row** (shorter): AMOC strength vs time for 4 selected trajectories at 280 ppm (pre-industrial, left) and 896 ppm (right). ON/OFF equilibria shown as dashed horizontal lines.
-- **Bottom row** (square): 2D salinity phase portrait (N. Atlantic vs Tropical Atlantic box salinity). Basin of attraction shown as pale background colour. Trajectories are time-shaded (alpha increases with time). Attractor positions marked with stars. Axes are labelled in psu: the model's internal salinity variable has offset 35 psu (i.e. a model value of 0 corresponds to 35 psu) and a scale of 10 psu per unit (i.e. a step of 0.1 in model units equals 1 psu).
+- **Top row** (shorter): AMOC strength vs time for 4 selected trajectories at 280 ppm (pre-industrial, left) and 448 ppm (right). AMOC-on and AMOC-off equilibria shown as dashed horizontal lines.
+- **Bottom row** (square): 2D salinity phase portrait (N. Atlantic vs Tropical Atlantic box salinity). Basin of attraction shown as pale background colour. Trajectories are plotted at fixed opacity; IC starting points marked with a circle. Attractor neighbourhoods shown as circles (0.05 psu radius in model units). Axes are labelled in psu: the model's internal salinity variable has offset 35 psu (i.e. a model value of 0 corresponds to 35 psu) and a scale of 10 psu per unit (i.e. a step of 0.1 in model units equals 1 psu).
 
 Output: `plots/amocbox_paper.png` (300 dpi PNG)
 
