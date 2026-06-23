@@ -38,6 +38,8 @@ sys.path.insert(0, str(UMBRELLA))
 from amoc_plot_style import (
     COL_ON, COL_OFF, COL_EDGE,
     BASIN_ON_FILL, BASIN_OFF_FILL, TRAJ_COLORS,
+    LW_TRAJ, LW_TRAJ_PHASE, LW_ATTRACTOR, LS_ATTRACTOR, ALPHA_ATTRACTOR,
+    LW_EQUIL, LS_EQUIL, ALPHA_EQUIL, IC_EDGE_COLOR, IC_EDGE_LW,
     make_paper_figure, add_panel_label, savefig_pdf,
 )
 
@@ -126,13 +128,13 @@ def main() -> None:
             t_arr  = sub["time"].values
             q_arr  = sub["q"].values
             lbl    = f"IC {k + 1}"
-            (line,) = ax_top.plot(t_arr, q_arr, color=color, lw=1.2, label=lbl)
+            (line,) = ax_top.plot(t_arr, q_arr, color=color, lw=LW_TRAJ, label=lbl)
             legend_handles.append(line)
             legend_labels.append(lbl)
 
         # Horizontal lines for equilibria
-        ax_top.axhline(q_on,  color=COL_ON,  lw=1.0, ls="--", alpha=0.8)
-        ax_top.axhline(q_off, color=COL_OFF, lw=1.0, ls="--", alpha=0.8)
+        ax_top.axhline(q_on,  color=COL_ON,  lw=LW_EQUIL, ls=LS_EQUIL, alpha=ALPHA_EQUIL)
+        ax_top.axhline(q_off, color=COL_OFF, lw=LW_EQUIL, ls=LS_EQUIL, alpha=ALPHA_EQUIL)
 
         ax_top.set_title(title, fontsize=9)
         if col == 0:
@@ -186,10 +188,10 @@ def main() -> None:
             color = TRAJ_COLORS[k % len(TRAJ_COLORS)]
             sub   = df_trajs[df_trajs["traj_id"] == tid].sort_values("time")
             ax_bot.plot(sub["S_N"].values, sub["S_T"].values,
-                        color=color, alpha=0.8, lw=1.0)
+                        color=color, alpha=0.8, lw=LW_TRAJ_PHASE)
             ax_bot.scatter(sub["S_N"].values[0], sub["S_T"].values[0],
                            marker="o", s=25, color=color, zorder=3,
-                           edgecolors="white", linewidths=0.4)
+                           edgecolors=IC_EDGE_COLOR, linewidths=IC_EDGE_LW)
 
         # Attractor markers
 
@@ -199,7 +201,7 @@ def main() -> None:
         for center, color in [((sn_on, st_on), COL_ON), ((sn_off, st_off), COL_OFF)]:
             ax_bot.plot(center[0] + r * np.cos(theta),
                         center[1] + r * np.sin(theta),
-                        color=color, lw=1.8, ls="-", alpha=0.85, zorder=4)
+                        color=color, lw=LW_ATTRACTOR, ls=LS_ATTRACTOR, alpha=ALPHA_ATTRACTOR, zorder=4)
 
         # Convert raw model salinity units to psu: 0 → 35 psu, step 0.1 → 1 psu
         sal_fmt = mticker.FuncFormatter(lambda x, _: f"{35 + x * 10:.0f}")
