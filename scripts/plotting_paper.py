@@ -142,10 +142,6 @@ def main() -> None:
         ax_top.set_xlabel("Time (model years)")
         add_panel_label(ax_top, panel_labels[col])
 
-        # Legend only in top-left panel
-        if col == 0:
-            ax_top.legend(legend_handles, legend_labels,
-                          loc="upper right", framealpha=0.8, fontsize=7)
 
         # ── BOTTOM panel: phase space ─────────────────────────────────────────
         # Basin fill
