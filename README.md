@@ -40,7 +40,7 @@ Runs global attractor continuation along `params(t) = params_1x + t * (params_2x
 
 **Attractor-centred sampling**: the resilience measures use a custom function (`src/attractor_centered_stability.jl`) rather than `Attractors.stability_measures_along_continuation`. At each continuation step the centroid of the AMOC-on attractor is computed, and initial conditions for the stability measures are drawn uniformly from a ±2 psu box around that centroid (±0.2 in model units, where 1 model unit = 10 psu). This ensures the perturbation experiment is always physically anchored to the current on-state position as it drifts with CO₂, rather than sampling from a fixed global grid.
 
-**Resilience measures exported to CSV**: `characteristic_return_time`, `mean_convergence_time`, `basin_stability`, `minimal_critical_shock_magnitude`.
+**Resilience measures exported to CSV**: `characteristic_return_time`, `local_resilience` (= 1/`characteristic_return_time`, the primary local-resilience metric for the synthesis figure), `mean_convergence_time`, `basin_stability`, `minimal_critical_shock_magnitude`.
 
 ### `amoc3box_export_paper_data.jl`
 

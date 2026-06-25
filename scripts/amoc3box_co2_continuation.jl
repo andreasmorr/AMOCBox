@@ -433,6 +433,14 @@ if COMPUTE_STABILITY
             end
         end
     end
+
+    # local_resilience = 1 / characteristic_return_time (avoid changing Attractors.jl source)
+    crt_cv = measure_curve(nls_measures, "characteristic_return_time", on_id, n_steps)
+    for (i, co2) in enumerate(CO2_VALUES)
+        if !isnan(crt_cv[i]) && i <= last_on && crt_cv[i] > 0
+            push!(rows, (co2, T_VALUES[i], "local_resilience", 1.0 / crt_cv[i], "on"))
+        end
+    end
 end
 
 csv_path = datadir("paper", "resilience_vs_co2_boxmodel.csv")
