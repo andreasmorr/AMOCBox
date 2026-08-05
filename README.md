@@ -2,6 +2,9 @@
 
 Resilience analysis of the Alkhayuon et al. 3-box AMOC model under increasing CO₂, using [Attractors.jl](https://juliadynamics.github.io/DynamicalSystemsDocs.jl/attractors/stable/).
 
+The paper-facing experiment setup is summarized in `PAPERINFO.md`; this README
+is kept as an operational guide for running and navigating the submodule.
+
 The model is parametrised for 1×CO₂ (280 ppm, pre-industrial) and 2×CO₂ (560 ppm) settings. The parameter curve is extrapolated beyond 2×CO₂ up to t=2.4 (≈952 ppm), giving 49 nominal continuation points. Stability and resilience measures are reported while the AMOC-on attractor is present; in the current cached run these paper-facing resilience metrics cover 45 CO₂ levels from 280 ppm through 896 ppm. The AMOC-strength diagnostic in `resilience_vs_co2_boxmodel.csv` extends one step farther, through 910 ppm. The export script produces one set of basin, trajectory, and attractor CSVs for each step where the on-attractor is present, tagged by the rounded CO₂ value (e.g. `280ppm`, `308ppm`, …, `896ppm`). The paper figure compares two scenarios: 280 ppm (pre-industrial, t=0) and 448 ppm (t=0.6).
 
 ---
