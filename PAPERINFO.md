@@ -299,6 +299,27 @@ For paper terminology:
   Attractors.jl stability measures. This is the intended local-resilience value
   for the AMOCBox synthesis.
 
+## Paper Figure
+
+`scripts/plotting_paper.py` produces `plots/amocbox_paper.png`, a four-panel
+figure with two CO2 columns: 280 ppm (`t = 0.0`, left) and 448 ppm
+(`t = 0.6`, right).
+
+- Top row (a, b): AMOC strength `q(t)` in Sv for four representative perturbed
+  trajectories (truncated to the first 3000 model years), plus dashed
+  horizontal reference lines at the on-state (blue) and off-state (orange-red)
+  equilibrium AMOC strengths.
+- Bottom row (c, d): the same trajectories in the `(S_N, S_T)` salinity plane,
+  with tick labels converted from internal units to psu. A `60 x 60` basin
+  grid, centred on the on-attractor over a ±2 psu window, is shaded by
+  attractor: pale blue for the on-state basin and pale orange for the off-state
+  basin. Trajectory start points are marked, and neighbourhood circles of
+  radius 0.05 psu are drawn around the on-state (blue) and off-state
+  (orange-red).
+
+The 3-box model is genuinely bistable across this forcing range, so both
+columns show both an on-state and an off-state basin.
+
 ## Paper Figure Data
 
 The AMOCBox paper figure is produced by `scripts/plotting_paper.py`.
