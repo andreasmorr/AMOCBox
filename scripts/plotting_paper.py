@@ -136,7 +136,7 @@ def main() -> None:
         ax_top.axhline(q_on,  color=COL_ON,  lw=LW_EQUIL, ls=LS_EQUIL, alpha=ALPHA_EQUIL)
         ax_top.axhline(q_off, color=COL_OFF, lw=LW_EQUIL, ls=LS_EQUIL, alpha=ALPHA_EQUIL)
 
-        ax_top.set_title(title, fontsize=9)
+        ax_top.set_title(title, fontsize=8)
         if col == 0:
             ax_top.set_ylabel("AMOC strength (Sv)")
         else:
