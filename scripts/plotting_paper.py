@@ -207,6 +207,9 @@ def main() -> None:
         sal_fmt = mticker.FuncFormatter(lambda x, _: f"{35 + x * 10:.0f}")
         ax_bot.xaxis.set_major_formatter(sal_fmt)
         ax_bot.yaxis.set_major_formatter(sal_fmt)
+        # Ticks at whole psu (model-unit step 0.1 = 1 psu).
+        ax_bot.xaxis.set_major_locator(mticker.MultipleLocator(0.1))
+        ax_bot.yaxis.set_major_locator(mticker.MultipleLocator(0.1))
 
         ax_bot.set_xlabel("North Atlantic salinity (psu)")
         if col == 0:
