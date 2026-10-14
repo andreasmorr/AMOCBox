@@ -34,6 +34,7 @@ The implemented experiment is defined by:
 - `scripts/plotting_paper.py`
 - `src/used_dynamical_systems.jl`
 - `src/attractor_centered_stability.jl`
+- `src/co2_continuation_config.jl`
 
 Primary paper-facing outputs are in:
 
@@ -199,21 +200,27 @@ Key values:
 - `t = 1`: 2xCO2, 560 ppm.
 - `t > 1`: linear extrapolation beyond the 2xCO2 parameter vector.
 
-Nominal continuation settings:
+Continuation settings (defined in `src/co2_continuation_config.jl`):
 
 - `T_START = 0.0`,
 - `T_END = 2.4`,
 - `T_STEP = 0.05`,
-- 49 nominal continuation points from 280 ppm to 952 ppm.
+- `T_REFINE = [2.225]`: one extra point at 903 ppm, between the last regular
+  on-state step (896 ppm, `t = 2.2`) and 910 ppm (`t = 2.25`), where the
+  on-state is no longer found;
+- 50 continuation points in total: 49 regular points from 280 ppm to 952 ppm
+  (14 ppm spacing) plus 903 ppm.
 
-In the current cached paper outputs:
+Paper-facing outputs:
 
 - complete paper-facing resilience metrics are available from 280 ppm through
-  896 ppm, corresponding to `t = 0.0` through `t = 2.2`;
-- the AMOC-strength diagnostic in `resilience_vs_co2_boxmodel.csv` extends one
-  additional step, through 910 ppm (`t = 2.25`);
+  903 ppm, corresponding to `t = 0.0` through `t = 2.225` (46 CO2 levels);
+- `amoc_strength_sv` in `resilience_vs_co2_boxmodel.csv` has one additional
+  row at 910 ppm (`t = 2.25`). At that step only the off-state is found, so the
+  value (about -7.6 Sv) is the off-state overturning, although the row is
+  labelled `attractor = on`; the synthesis figure omits it;
 - basin, trajectory, and attractor CSVs are exported from 280 ppm through
-  896 ppm.
+  903 ppm.
 
 When writing the paper, do not state that all resilience metrics are available
 through 952 ppm.
@@ -261,7 +268,16 @@ attractor-search grid. Instead, it uses a custom attractor-centered sampler:
   salinity units, i.e. `0.2 psu`;
 - random samples per parameter step: `RESILIENCE_SAMPLES = 10000`;
 - sampling distribution: `Attractors.EverywhereUniform()`;
+- random seeds: fixed for reproducibility; the global-continuation sampler uses
+  `SEED = 1234` and the resilience sampler at continuation step `i` uses
+  `SEED + i` (defined in `src/co2_continuation_config.jl`);
 - finite-time horizon for stability measures: `FINITE_TIME = 1000.0`;
+- convergence limit: `consecutive_lost_steps = 50_000` steps of `Delta t = 1`,
+  i.e. an initial condition must come within `epsilon` of an attractor within
+  50,000 model years, otherwise it is counted as unassigned. Near the end of
+  the on-branch the on-state decays very slowly (e-folding time about 3000
+  model years at 903 ppm) and convergence takes up to about 18,000 model
+  years, so the Attractors.jl default of 10,000 is not sufficient there;
 - distance object: `StrictlyMinimumDistance()`;
 - proximity threshold: `epsilon = 0.005` internal salinity units, i.e. `0.05 psu`.
 
@@ -358,7 +374,9 @@ internal salinity units, i.e. `0.05 psu`.
 Implementation note: the export helper constructs systems through
 `amoc3box_at_t(t)`, whose proximity threshold is `epsilon = 0.01` internal units
 for the exported basin classification. The main resilience metrics use
-`epsilon = 0.005`.
+`epsilon = 0.005`. The exported basin classification uses the same convergence
+limit as the resilience metrics (`consecutive_lost_steps = 50_000`) and a
+transient `Ttr = 4000` for `t > 0`.
 
 ## Recommended Paper Wording
 
@@ -391,9 +409,11 @@ Figure-caption wording:
 
 - Do not say the AMOCBox resilience metrics were computed every 30 ppm or only
   over 285-480 ppm; the implemented continuation uses 14 ppm nominal spacing
-  from the `t` step of 0.05.
-- Do not say the complete resilience curves extend to 952 ppm; the current
-  complete paper-facing metric range ends at 896 ppm.
+  from the `t` step of 0.05, plus one refinement point at 903 ppm.
+- Do not say the complete resilience curves extend to 952 ppm; the complete
+  paper-facing metric range ends at 903 ppm.
+- Do not treat the 910 ppm `amoc_strength_sv` value as an on-state AMOC
+  strength; it is the off-state value at the first step without an on-state.
 - Do not describe the perturbation sampling for resilience metrics as a fixed
   global grid. It is attractor-centered at every CO2 step.
 - Do not describe the implemented salt-conservation diagnostic as Southern Ocean

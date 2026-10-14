@@ -24,6 +24,7 @@ using DrWatson
 @quickactivate "AMOCResilience"
 
 include(srcdir("used_dynamical_systems.jl"))
+include(srcdir("co2_continuation_config.jl"))
 
 using DynamicalSystems
 using Attractors
@@ -31,24 +32,9 @@ using Statistics
 using CSV
 using DataFrames
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Continuation parameters — must match amoc3box_co2_continuation.jl exactly
-# so that produce_or_load finds the right JLD2 cache file.
-# ─────────────────────────────────────────────────────────────────────────────
-
-const T_START              = 0.0
-const T_END                = 2.4
-const T_STEP               = 0.05
-const CONTINUATION_SAMPLES = 100
-const RESILIENCE_SAMPLES   = 10_000
-const FINITE_TIME          = 1000.0
-const COMPUTE_STABILITY    = true
-
-const CO2_1X = 280.0
-const CO2_2X = 560.0
-
-const T_VALUES   = collect(range(T_START, T_END; step = T_STEP))
-const CO2_VALUES = CO2_1X .+ T_VALUES .* (CO2_2X - CO2_1X)
+# Continuation parameters (T_VALUES, CO2_VALUES, continuation_config) come from
+# src/co2_continuation_config.jl, shared with amoc3box_co2_continuation.jl, so
+# that produce_or_load finds the same JLD2 cache file.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Settings
@@ -145,7 +131,7 @@ function process_step(i, t_val, co2_val, attractors_from_cont)
         Δt                     = prox_kw.Δt,
         stop_at_Δt             = prox_kw.stop_at_Δt,
         horizon_limit          = prox_kw.horizon_limit,
-        consecutive_lost_steps = prox_kw.consecutive_lost_steps,
+        consecutive_lost_steps = CONSECUTIVE_LOST_STEPS,   # see src/co2_continuation_config.jl
     )
     basins, _ = basins_of_attraction(prox_mapper, (xg, yg); show_progress = false)
 
@@ -197,15 +183,7 @@ function main()
     mkpath(datadir("paper"))
 
     # ── Load continuation results from cache ─────────────────────────────────
-    config = Dict(
-        "T_start"              => T_START,
-        "T_end"                => T_END,
-        "T_step"               => T_STEP,
-        "continuation_samples" => CONTINUATION_SAMPLES,
-        "resilience_samples"   => RESILIENCE_SAMPLES,
-        "finite_time"          => FINITE_TIME,
-        "compute_stability"    => COMPUTE_STABILITY,
-    )
+    config = continuation_config()
 
     data, _ = produce_or_load(
         datadir("co2_continuation"), config;

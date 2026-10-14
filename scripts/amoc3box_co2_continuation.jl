@@ -11,6 +11,10 @@ Parameter curve:
   t = 1   → 2xCO2 (~2°C warmer)
   t > 1   → extrapolation beyond 2xCO2
 
+The t grid (regular 0.05 spacing plus refinement points such as t = 2.225,
+i.e. 903 ppm) and all sampling settings are defined in
+src/co2_continuation_config.jl, which is shared with the export script.
+
 Attractors are tracked by global continuation; stability / resilience measures
 are computed at each step and plotted in a single multi-panel figure.
 
@@ -23,6 +27,7 @@ using DrWatson
 
 include(srcdir("used_dynamical_systems.jl"))
 include(srcdir("attractor_centered_stability.jl"))
+include(srcdir("co2_continuation_config.jl"))
 
 using DynamicalSystems
 using Attractors
@@ -31,18 +36,10 @@ using Statistics
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Tunable parameters
+# (t grid, sample sizes and COMPUTE_STABILITY live in src/co2_continuation_config.jl)
 # ─────────────────────────────────────────────────────────────────────────────
 
-const T_START = 0.0    # 1xCO2
-const T_END   = 2.4    # beyond 2xCO2
-const T_STEP  = 0.05
-
-const CONTINUATION_SAMPLES = 100
-const RESILIENCE_SAMPLES   = 10_000
-const FINITE_TIME          = 1000.0
-
-const COMPUTE_STABILITY = true   # set false to skip stability measures (faster)
-const PLOT_BASINS       = false  # set true to compute and save per-step basin plots
+const PLOT_BASINS = false  # set true to compute and save per-step basin plots
 
 const MEASURE_YLABELS = Dict(
     "basin_fraction"                        => "Basin fraction",
@@ -89,10 +86,6 @@ function make_co2_pcurve(p1x, p2x, t_values)
     return pcurve
 end
 
-const T_VALUES   = collect(range(T_START, T_END; step = T_STEP))
-const CO2_1X     = 280.0   # ppm, pre-industrial
-const CO2_2X     = 560.0   # ppm, 2×CO₂
-const CO2_VALUES = CO2_1X .+ T_VALUES .* (CO2_2X - CO2_1X)
 const pcurve     = make_co2_pcurve(amoc_params_1xco2, amoc_params_2xco2, T_VALUES)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -101,7 +94,7 @@ const pcurve     = make_co2_pcurve(amoc_params_1xco2, amoc_params_2xco2, T_VALUE
 
 ds, grid, proximity = amoc3box_1xco2()
 
-sampler, = statespace_sampler(grid)
+sampler, = statespace_sampler(grid, SEED)   # seeded → reproducible continuation
 
 recurrence_kw = Dict(
     :Ttr                         => 0.0,
@@ -119,7 +112,7 @@ proximity_options = (;
     Δt                     = 1.0,
     stop_at_Δt             = true,
     horizon_limit          = 1e2,
-    consecutive_lost_steps = 10_000,
+    consecutive_lost_steps = CONSECUTIVE_LOST_STEPS,   # see src/co2_continuation_config.jl
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -141,15 +134,7 @@ end
 # Run (or load cached) continuation + stability measures
 # ─────────────────────────────────────────────────────────────────────────────
 
-config = Dict(
-    "T_start"              => T_START,
-    "T_end"                => T_END,
-    "T_step"               => T_STEP,
-    "continuation_samples" => CONTINUATION_SAMPLES,
-    "resilience_samples"   => RESILIENCE_SAMPLES,
-    "finite_time"          => FINITE_TIME,
-    "compute_stability"    => COMPUTE_STABILITY,
-)
+config = continuation_config()
 
 data, _ = produce_or_load(
     datadir("co2_continuation"), config;
@@ -180,6 +165,7 @@ data, _ = produce_or_load(
             distance                 = StrictlyMinimumDistance(),
             samples_per_parameter    = RESILIENCE_SAMPLES,
             proximity_mapper_options = proximity_options,
+            seed                     = SEED,   # step i uses SEED + i
         )
     else
         Dict{String, Any}()
@@ -319,7 +305,7 @@ display(fig)
 # ─────────────────────────────────────────────────────────────────────────────
 
 println("\n=== CO2 Trajectory Continuation Summary ===")
-println("t range: $T_START → $T_END, step $T_STEP")
+println("t range: $T_START → $T_END, step $T_STEP, refinement points $T_REFINE ($(length(T_VALUES)) steps)")
 println("  t=0 : 1xCO2 (pre-industrial)")
 println("  t=1 : 2xCO2 (~2°C warmer)")
 println("Continuation samples : $CONTINUATION_SAMPLES per step")

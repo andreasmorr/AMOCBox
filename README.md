@@ -5,7 +5,7 @@ Resilience analysis of the Alkhayuon et al. 3-box AMOC model under increasing CO
 The paper-facing experiment setup is summarized in `PAPERINFO.md`; this README
 is kept as an operational guide for running and navigating the submodule.
 
-The model is parametrised for 1×CO₂ (280 ppm, pre-industrial) and 2×CO₂ (560 ppm) settings. The parameter curve is extrapolated beyond 2×CO₂ up to t=2.4 (≈952 ppm), giving 49 nominal continuation points. Stability and resilience measures are reported while the AMOC-on attractor is present; in the current cached run these paper-facing resilience metrics cover 45 CO₂ levels from 280 ppm through 896 ppm. The AMOC-strength diagnostic in `resilience_vs_co2_boxmodel.csv` extends one step farther, through 910 ppm. The export script produces one set of basin, trajectory, and attractor CSVs for each step where the on-attractor is present, tagged by the rounded CO₂ value (e.g. `280ppm`, `308ppm`, …, `896ppm`). The paper figure compares two scenarios: 280 ppm (pre-industrial, t=0) and 448 ppm (t=0.6).
+The model is parametrised for 1×CO₂ (280 ppm, pre-industrial) and 2×CO₂ (560 ppm) settings. The parameter curve is extrapolated beyond 2×CO₂ up to t=2.4 (952 ppm) in steps of Δt=0.05 (14 ppm), with one extra refinement point at t=2.225 (903 ppm) between the last regular on-state step (896 ppm) and 910 ppm. This gives 50 continuation points. Stability and resilience measures are reported while the AMOC-on attractor is present, i.e. for 46 CO₂ levels from 280 ppm through 903 ppm. The `amoc_strength_sv` rows in `resilience_vs_co2_boxmodel.csv` contain one further point at 910 ppm: there the on-state is no longer found and the value (≈ −7.6 Sv) is that of the remaining off-state, even though the row is labelled `attractor = on`. The export script produces one set of basin, trajectory, and attractor CSVs for each step where the on-attractor is present, tagged by the rounded CO₂ value (e.g. `280ppm`, `294ppm`, …, `896ppm`, `903ppm`). The paper figure compares two scenarios: 280 ppm (pre-industrial, t=0) and 448 ppm (t=0.6).
 
 ---
 
@@ -19,6 +19,7 @@ AMOCBox/
 │   └── plotting_paper.py              # Paper figure (reads exported CSVs)
 ├── src/
 │   ├── used_dynamical_systems.jl      # Box model definitions and CO₂-continuation constructor
+│   ├── co2_continuation_config.jl     # Shared t grid, sample sizes and cache configuration
 │   └── attractor_centered_stability.jl # Custom stability measures with per-step centred sampling
 ├── data/
 │   ├── co2_continuation/              # Cached results from CO₂ continuation runs (.jld2)
@@ -38,7 +39,7 @@ AMOCBox/
 
 ### `amoc3box_co2_continuation.jl`
 
-Runs global attractor continuation along `params(t) = params_1x + t * (params_2x - params_1x)`, where `t=0` is pre-industrial (280 ppm) and `t=1` is 2×CO₂ (560 ppm). The curve is extrapolated to `t=2.4` (≈952 ppm). Stability and resilience measures are computed along the curve while the on-attractor is present and saved via DrWatson's `produce_or_load`. Also directly exports `data/paper/resilience_vs_co2_boxmodel.csv` with AMOC strength (Sv) and the four resilience metrics used in the synthesis figure.
+Runs global attractor continuation along `params(t) = params_1x + t * (params_2x - params_1x)`, where `t=0` is pre-industrial (280 ppm) and `t=1` is 2×CO₂ (560 ppm). The curve is extrapolated to `t=2.4` (952 ppm); the t grid (Δt=0.05 plus the refinement point `t=2.225`, 903 ppm) and the sample sizes are defined in `src/co2_continuation_config.jl`, which is shared with the export script. Stability and resilience measures are computed along the curve while the on-attractor is present and saved via DrWatson's `produce_or_load`. Also directly exports `data/paper/resilience_vs_co2_boxmodel.csv` with AMOC strength (Sv) and the four resilience metrics used in the synthesis figure.
 
 **Attractor-centred sampling**: the resilience measures use a custom function (`src/attractor_centered_stability.jl`) rather than `Attractors.stability_measures_along_continuation`. At each continuation step the centroid of the AMOC-on attractor is computed, and initial conditions for the stability measures are drawn uniformly from a ±2 psu box around that centroid (±0.2 in model units, where 1 model unit = 10 psu). This ensures the perturbation experiment is always physically anchored to the current on-state position as it drifts with CO₂, rather than sampling from a fixed global grid.
 
@@ -46,13 +47,17 @@ Runs global attractor continuation along `params(t) = params_1x + t * (params_2x
 
 ### `amoc3box_export_paper_data.jl`
 
-Loads the JLD2 continuation cache and exports one set of CSVs per retained t step to `data/paper/`, skipping steps where the on-attractor is absent. For each exported step (tagged `{co2}ppm`; currently 280 ppm through 896 ppm) it:
+Loads the JLD2 continuation cache and exports one set of CSVs per retained t step to `data/paper/`, skipping steps where the on-attractor is absent. For each exported step (tagged `{co2}ppm`; 280 ppm through 903 ppm) it:
 - uses `AttractorsViaProximity` with the pre-found continuation attractors (fast, no fresh attractor search),
 - computes a 60×60 basin grid centred on the on-attractor (±0.2 model units = ±2 psu),
 - integrates four trajectories from the grid corners (±0.8×0.2 model units),
 - writes `basin_{co2}ppm.csv`, `trajectories_{co2}ppm.csv`, and `attractors_{co2}ppm.csv`.
 
 Must be run after `amoc3box_co2_continuation.jl` has produced the JLD2 cache.
+
+### `src/co2_continuation_config.jl`
+
+Single definition of the continuation grid (`T_START`, `T_END`, `T_STEP`, `T_REFINE`), the sample sizes, the random seed (`SEED`; the global-continuation sampler uses `SEED`, the resilience sampler at step `i` uses `SEED + i`, so runs are reproducible), and the `produce_or_load` configuration used by both Julia scripts. Every entry of the configuration appears in the JLD2 cache file name, so changing any of them (including adding refinement points) triggers a fresh continuation run instead of silently loading an old cache.
 
 ### `src/used_dynamical_systems.jl`
 

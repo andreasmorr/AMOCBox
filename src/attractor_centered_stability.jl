@@ -27,7 +27,7 @@ using Attractors: ProgressMeter
         grid_delta, grid_step,
         ε, weighting_distribution, finite_time, distance,
         samples_per_parameter, proximity_mapper_options,
-        show_progress
+        seed, show_progress
     ) → Dict{String, Vector{Dict{Int,Float64}}}
 
 Compute stability / resilience measures along a parameter continuation curve,
@@ -48,6 +48,8 @@ step.
   (indexed by step), or a `Function(p, attractors)`.
 - `samples_per_parameter`: number of ICs sampled per continuation step.
 - `proximity_mapper_options`: keyword args forwarded to `AttractorsViaProximity`.
+- `seed = nothing`: if an `Int`, the sampler at step `i` is seeded with `seed + i`,
+  making the measures reproducible; if `nothing`, a random seed is drawn per step.
 - `show_progress`: show a ProgressMeter bar.
 
 # Returns
@@ -68,6 +70,7 @@ function stability_measures_attractor_centered(
     distance    = Attractors.StrictlyMinimumDistance(),
     samples_per_parameter::Int  = 1000,
     proximity_mapper_options    = NamedTuple(),
+    seed::Union{Int, Nothing}   = nothing,
     show_progress::Bool = true,
 )
     n        = length(pcurve)
@@ -97,7 +100,8 @@ function stability_measures_attractor_centered(
         # ── Build ±grid_delta sampling grid centred on the on-attractor ──────
         xg = range(sn_c - grid_delta, sn_c + grid_delta; step = grid_step)
         yg = range(st_c - grid_delta, st_c + grid_delta; step = grid_step)
-        sampler, = statespace_sampler((xg, yg))
+        sampler, = isnothing(seed) ? statespace_sampler((xg, yg)) :
+                                     statespace_sampler((xg, yg), seed + i)
 
         # ── Per-step parameter dispatch (scalar / vector / function) ─────────
         ε_ = _resolve(ε,                    i, p, attractors)
